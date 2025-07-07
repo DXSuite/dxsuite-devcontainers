@@ -1,6 +1,6 @@
 version: 2
 updates:
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/images/python/3.13-bookworm"
     schedule:
       interval: "weekly"
