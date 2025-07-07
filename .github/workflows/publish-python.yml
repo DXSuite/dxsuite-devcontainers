@@ -1,0 +1,66 @@
+name: Build & publish Python DXSuite images
+on:
+  push:
+    branches: [main]
+    paths: 
+      - "images/python/**"
+      - ".github/workflows/publish-python.yml"
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - version: "3.13-bookworm"
+            image_name: "dxsuite-devcontainer-python"
+            context: "./images/python/3.13-bookworm"
+            tags: |
+              type=raw,value=3.13-bookworm
+              type=raw,value=3.13.5-bookworm
+              type=raw,value=latest,enable={{is_default_branch}}
+    
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # works automatically for ghcr
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image_name }}
+          tags: ${{ matrix.tags }}
+
+      - name: Build & push
+        id: build
+        uses: docker/build-push-action@v5        # main workhorse
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+
+      # --- optional hardening ---
+      # SBOM and vulnerability scanning can be added later
+      # - name: Generate SBOM (Syft)
+      # - name: Vulnerability scan (Trivy)
